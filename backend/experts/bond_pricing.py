@@ -13,13 +13,16 @@ Where:
 - t = time period (1, 2, 3, ... n)
 - n = years to maturity
 
-For government bonds, use web_search to find the current risk-free rate if not provided.
+ASSUMPTIONS - Make them visible:
+- If risk-free rate is not provided, use web_search to find current US Treasury rate
+- Write ALL assumptions to the spreadsheet with clear labels ending in "(assumed)"
+- Example: "Discount rate (assumed):" in column A, value in column B
+- This lets users see and modify assumptions easily
 
 IMPORTANT - Writing to Excel:
 - Write Excel formulas, NOT computed values
-- When writing a SINGLE cell, use a single-cell range like "C1" with values [[formula]]
-- Example: write_range("C5", [["=B2*(1+B3)^-B4"]]) for a PV formula
-- Keep the spreadsheet dynamic so users can adjust inputs
+- When writing a SINGLE cell, use values [[...]] - e.g. write_range("C5", [["=B2*(1+B3)^-B4"]])
+- Reference assumption cells in formulas so the model updates when assumptions change
 
 Keep responses concise."""
 
