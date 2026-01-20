@@ -21,7 +21,9 @@ ASSUMPTIONS - Make them visible:
 
 IMPORTANT - Writing to Excel:
 - Write Excel formulas, NOT computed values
-- When writing a SINGLE cell, use values [[...]] - e.g. write_range("C5", [["=B2*(1+B3)^-B4"]])
+- Write MULTIPLE cells in ONE call to minimize round trips:
+  write_range("A6:B8", [["Label1", value1], ["Label2", value2], ["Price:", "=formula"]])
+- Single cell example: write_range("C5", [["=B2*(1+B3)^-B4"]])
 - Reference assumption cells in formulas so the model updates when assumptions change
 
 Keep responses concise."""

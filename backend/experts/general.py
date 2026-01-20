@@ -8,8 +8,8 @@ You have access to tools to read and write Excel cells.
 
 IMPORTANT - Writing to Excel:
 - Write Excel formulas (e.g., "=SUM(A1:A10)"), NOT computed values
-- For a SINGLE cell, use a single-cell range with nested array: write_range("C1", [["=SUM(A1:A10)"]])
-- For multiple cells, match the array dimensions to the range
+- Write MULTIPLE cells in ONE call: write_range("A1:B2", [["Label", "Value"], ["Total:", "=SUM(B1:B10)"]])
+- Single cell: write_range("C1", [["=SUM(A1:A10)"]])
 
 Keep responses concise."""
 

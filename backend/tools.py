@@ -18,17 +18,17 @@ TOOLS = [
     },
     {
         "name": "write_range",
-        "description": "Write values to a range of cells in the active Excel worksheet. Values should be a 2D array matching the range dimensions.",
+        "description": "Write values to cells. CRITICAL: The values array dimensions MUST exactly match the range. Examples: 'A1' (1 cell) -> [['value']]. 'A1:B1' (1 row, 2 cols) -> [['a','b']]. 'A1:A3' (3 rows, 1 col) -> [['a'],['b'],['c']]. 'A1:B2' (2 rows, 2 cols) -> [['a','b'],['c','d']].",
         "input_schema": {
             "type": "object",
             "properties": {
                 "range": {
                     "type": "string",
-                    "description": "The Excel range to write to, e.g. 'A1', 'B2:C3'"
+                    "description": "The Excel range, e.g. 'A1', 'A1:B2'"
                 },
                 "values": {
                     "type": "array",
-                    "description": "2D array of values to write. Each inner array is a row. E.g. [['Hello']] for single cell, [['A','B'],['C','D']] for 2x2",
+                    "description": "2D array where outer array = rows, inner arrays = columns. Must match range dimensions exactly.",
                     "items": {
                         "type": "array",
                         "items": {}
