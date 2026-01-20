@@ -8,3 +8,18 @@ wheels/
 
 # Virtual environments
 .venv
+
+# Node.js
+node_modules/
+npm-debug.log*
+
+# Office Add-in build output
+dist/
+lib/
+
+# Environment files
+.env
+.env.local
+
+# OS files
+.DS_Store
