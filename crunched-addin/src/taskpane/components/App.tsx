@@ -16,15 +16,16 @@ interface ToolCall {
 }
 
 interface ChatResponse {
+  session_id: string;
   response: string | null;
   tool_calls: ToolCall[] | null;
-  conversation_history: unknown[] | null;
 }
 
 const App: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [sessionId, setSessionId] = useState<string | null>(null);
 
   const executeToolCall = async (toolCall: ToolCall): Promise<unknown> => {
     if (toolCall.name === "read_range") {
@@ -52,10 +53,10 @@ const App: React.FC = () => {
       let response = await fetch(`${API_URL}/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: userMessage }),
+        body: JSON.stringify({ message: userMessage, session_id: sessionId }),
       });
       let data: ChatResponse = await response.json();
-      let conversationHistory = data.conversation_history;
+      setSessionId(data.session_id);
 
       // Tool execution loop
       while (data.tool_calls && data.tool_calls.length > 0) {
@@ -74,12 +75,11 @@ const App: React.FC = () => {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             message: userMessage,
-            tool_results: toolResults,
-            conversation_history: conversationHistory
+            session_id: data.session_id,
+            tool_results: toolResults
           }),
         });
         data = await response.json();
-        conversationHistory = data.conversation_history;
       }
 
       if (data.response) {

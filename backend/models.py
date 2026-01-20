@@ -1,22 +1,21 @@
 """Pydantic models for request/response."""
 
-from typing import Any
 from pydantic import BaseModel
 
 
 class ChatRequest(BaseModel):
     message: str
-    tool_results: list[dict] | None = None  # Results from frontend tool execution
-    conversation_history: list[dict] | None = None  # For multi-turn conversations
+    session_id: str | None = None  # None = new session
+    tool_results: list[dict] | None = None
 
 
 class ToolCall(BaseModel):
-    id: str  # Claude's tool_use_id - needed to match results
+    id: str
     name: str
     args: dict
 
 
 class ChatResponse(BaseModel):
-    response: str | None = None  # Final response to display
-    tool_calls: list[ToolCall] | None = None  # Tools for frontend to execute
-    conversation_history: list[Any] | None = None  # Pass back for next request
+    session_id: str  # Always returned so frontend can continue session
+    response: str | None = None
+    tool_calls: list[ToolCall] | None = None
