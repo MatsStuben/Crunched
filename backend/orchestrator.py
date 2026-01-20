@@ -31,12 +31,27 @@ Rules:
 
 
 def _extract_json(text: str) -> str:
-    """Strip markdown code block wrapper if present."""
+    """Extract JSON from response, handling markdown code blocks anywhere in text."""
     text = text.strip()
-    if text.startswith("```"):
-        lines = text.split("\n")
-        # Remove first line (```json) and last line (```)
-        return "\n".join(lines[1:-1])
+
+    # Find JSON code block anywhere in text
+    if "```json" in text:
+        start = text.find("```json") + 7
+        end = text.find("```", start)
+        if end != -1:
+            return text[start:end].strip()
+
+    # Try finding generic code block
+    if "```" in text:
+        start = text.find("```") + 3
+        # Skip language identifier if on same line
+        newline = text.find("\n", start)
+        if newline != -1:
+            start = newline + 1
+        end = text.find("```", start)
+        if end != -1:
+            return text[start:end].strip()
+
     return text
 
 
