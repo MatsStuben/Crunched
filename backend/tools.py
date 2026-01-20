@@ -36,5 +36,14 @@ TOOLS = [
             },
             "required": ["range", "values"]
         }
+    },
+    {
+        "name": "get_workbook_info",
+        "description": "Get information about the workbook structure. Returns sheet names and the used range for each sheet (e.g., 'A1:Z100'). Use this to understand what data exists before reading specific ranges.",
+        "input_schema": {
+            "type": "object",
+            "properties": {},
+            "required": []
+        }
     }
 ]

@@ -1,6 +1,6 @@
 import * as React from "react";
 import { useState } from "react";
-import { readRange, writeRange } from "../taskpane";
+import { readRange, writeRange, getWorkbookInfo } from "../taskpane";
 
 const API_URL = "https://localhost:8000";
 
@@ -37,6 +37,9 @@ const App: React.FC = () => {
         toolCall.args.values as unknown[][]
       );
       return "Done";
+    }
+    if (toolCall.name === "get_workbook_info") {
+      return await getWorkbookInfo();
     }
     return "Unknown tool";
   };

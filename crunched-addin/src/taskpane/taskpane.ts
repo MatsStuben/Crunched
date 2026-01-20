@@ -20,3 +20,23 @@ export async function writeRange(range: string, values: unknown[][]): Promise<vo
     await context.sync();
   });
 }
+
+export async function getWorkbookInfo(): Promise<{ sheets: { name: string; usedRange: string }[] }> {
+  const sheets: { name: string; usedRange: string }[] = [];
+  await Excel.run(async (context) => {
+    const worksheets = context.workbook.worksheets;
+    worksheets.load("items/name");
+    await context.sync();
+
+    for (const sheet of worksheets.items) {
+      const usedRange = sheet.getUsedRange();
+      usedRange.load("address");
+      await context.sync();
+      sheets.push({
+        name: sheet.name,
+        usedRange: usedRange.address || "Empty"
+      });
+    }
+  });
+  return { sheets };
+}
