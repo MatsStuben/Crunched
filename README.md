@@ -1,6 +1,6 @@
 # Crunched 2.0
 
-A simplified Excel add-in with an AI agent that can read and write to spreadsheets via natural language.
+An Excel add-in with an AI agent that can read and write to spreadsheets via natural language. Includes a specialized bond pricing expert that uses DCF valuation.
 
 ## Setup
 
@@ -46,28 +46,34 @@ npm start
 ### 5. Use the add-in
 
 1. In Excel, click "Show Task Pane" on the Home ribbon
-2. Type a message like "What's in cell A1?" or "Write 'Hello' to B1"
-3. The agent reads/writes to your spreadsheet
+2. Type a message like "Calculate the bond price from the data in the sheet"
+3. The agent reads your data, searches for current rates if needed, and writes formulas
 
 ---
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────┐
-│  Excel Add-in (React + TypeScript)      │
-│  - Chat UI                              │
-│  - Office.js for Excel operations       │
-│  - Executes tool calls from backend     │
-└─────────────────────────────────────────┘
-                    │ HTTPS
-                    ▼
-┌─────────────────────────────────────────┐
-│  Python Backend (FastAPI)               │
-│  - /chat endpoint                       │
-│  - Claude agent with tool definitions   │
-│  - Returns tool_calls or final response │
-└─────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                    Excel Add-in (React + TypeScript)            │
+│  - Chat UI for user interaction                                 │
+│  - Office.js for Excel operations (read/write cells)           │
+│  - Executes tool calls returned by backend                      │
+└─────────────────────────────────────────────────────────────────┘
+                              │ HTTPS
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                    Python Backend (FastAPI)                     │
+│                                                                 │
+│  ┌─────────────┐    ┌──────────────┐    ┌─────────────────┐   │
+│  │ Orchestrator│───▶│ Data Strategy│───▶│     Experts     │   │
+│  │ (classify)  │    │ (read_all/   │    │ - general       │   │
+│  │             │    │  ask_user/   │    │ - bond_pricing  │   │
+│  │             │    │  skip)       │    │                 │   │
+│  └─────────────┘    └──────────────┘    └─────────────────┘   │
+│                                                                 │
+│  Session state machine manages flow between phases              │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 **Why this split?**
@@ -79,51 +85,155 @@ Office.js (Excel API) only runs in the browser context. The backend cannot direc
 
 ---
 
+## Agent Workflow
+
+The backend operates as a state machine with the following phases:
+
+```
+                    ┌──────────────┐
+                    │   CLASSIFY   │
+                    │ (task type + │
+                    │ needs_excel) │
+                    └──────┬───────┘
+                           │
+              ┌────────────┴────────────┐
+              │                         │
+        needs_excel=true          needs_excel=false
+              │                         │
+              ▼                         │
+     ┌────────────────┐                 │
+     │  GET_WORKBOOK  │                 │
+     │ (fetch sheet   │                 │
+     │  structure)    │                 │
+     └───────┬────────┘                 │
+             │                          │
+             ▼                          │
+     ┌────────────────┐                 │
+     │ DATA_STRATEGY  │                 │
+     └───────┬────────┘                 │
+             │                          │
+    ┌────────┼────────┐                 │
+    │        │        │                 │
+ <100 rows  >100 rows  no data          │
+    │        │        │                 │
+    ▼        ▼        │                 │
+READ_DATA  ASK_USER   │                 │
+    │        │        │                 │
+    │        ▼        │                 │
+    │   (user gives   │                 │
+    │   clarification)│                 │
+    │        │        │                 │
+    │        ▼        │                 │
+    │   DATA_STRATEGY │                 │
+    │   (re-evaluate) │                 │
+    │        │        │                 │
+    └────────┴────────┴─────────────────┘
+                      │
+                      ▼
+              ┌───────────────┐
+              │    EXPERT     │
+              │ (bond_pricing │
+              │  or general)  │
+              └───────────────┘
+                      │
+                      ▼
+              ┌───────────────┐
+              │   Response    │
+              │  to user      │
+              └───────────────┘
+```
+
+### Orchestrator
+
+1. **Classification Agent**: Determines task type (`bond_pricing` or `other`) and whether Excel data is needed. Uses native tool use for guaranteed structured output.
+
+2. **Data Strategy Agent**: If Excel data is needed, decides how to gather it. This prevents the system from failing or becoming unresponsive when dealing with large Excel files. Reading 100k rows into an LLM context would crash the system or exceed token limits.
+   - `read_all`: Data is small (<100 rows), safe to read everything
+   - `ask_user`: Data is large, ask user to specify relevant range to avoid overload
+   - `skip`: No relevant data exists
+
+### Experts
+
+- **General Expert**: Simple read/write operations on the spreadsheet. Answers questions about data, writes formulas.
+
+- **Bond Pricing Expert**: Specialized for DCF bond valuation. Can:
+  - Search the web for current risk-free rates (US Treasury) if it is not in Excel sheet
+  - Write Excel formulas (not computed values) for bond pricing
+  - Label assumptions clearly (e.g., "risk-free rate (assumed):")
+  - Reference assumption cells so the model updates dynamically
+
+---
+
 ## Design Decisions
 
-### 1. Native tool use over JSON prompting
+### 1. Native tool use everywhere
 
-We use Anthropic's native tool use API rather than prompting Claude to output JSON. This guarantees the response format is always correct — no parsing errors or malformed JSON. The API returns structured Python objects, not text we hope is valid JSON.
+All Claude calls use Anthropic's native tool use API with `tool_choice` to force structured output. No JSON parsing, no retry logic needed. The orchestrator's classify and data_strategy calls use custom tools; the experts use Excel tools. Tool outputs are validated with Pydantic models for type safety and cleaner code (attribute access instead of dict access).
 
 ### 2. Targeted reads for scalability
 
-The agent never reads an entire worksheet. It requests specific ranges (e.g., `A1:B10`), so the system works with workbooks of any size. A 100k-row spreadsheet won't crash the add-in because we only read what's needed.
+The agent never reads an entire worksheet blindly. The data strategy agent decides which ranges to read based on the task. For large workbooks (>100 rows), it asks the user to specify the relevant data.
 
-### 3. Server-side session state
+### 3. Formulas over computed values
 
-Conversation history is stored on the backend, keyed by `session_id`. The frontend only sends the session ID with each request — not the full conversation history. This keeps payloads small and gives the backend full control over state. In production, you'd swap the in-memory dict for Redis.
+The agent writes Excel formulas (e.g., `=B2/(1+B5)^B4`) rather than computing values. This keeps spreadsheets dynamic and auditable. LLMs are unreliable at math; Excel is not.
 
-### 4. HTTPS everywhere
+### 4. Visible assumptions
 
-Office add-ins require HTTPS. We reuse the development certificates generated by `office-addin-dev-certs` for both the frontend and backend, avoiding mixed-content browser errors.
+When the bond expert makes assumptions (e.g., using current Treasury rate), it writes them to the spreadsheet with clear labels ending in "(assumed)". Users can see and modify assumptions.
 
-### 5. Formulas over computed values
+### 5. Server-side session state
 
-When the user asks for calculations (sums, averages, etc.), the agent writes Excel formulas (e.g., `=SUM(A1:A10)`) rather than computing the result itself. This keeps the spreadsheet dynamic — when inputs change, results update automatically. This is enforced via the system prompt.
+Conversation history and phase state are stored on the backend, keyed by `session_id`. The frontend only sends the session ID with each request. This keeps payloads small and gives the backend full control.
+
+### 6. HTTPS everywhere
+
+Office add-ins require HTTPS. We reuse the development certificates generated by `office-addin-dev-certs` for both frontend and backend.
 
 ---
 
 ## Project Structure
 
 ```
-├── crunched-addin/          # Excel add-in (React + TypeScript)
+├── crunched-addin/              # Excel add-in (React + TypeScript)
 │   ├── src/taskpane/
 │   │   ├── components/App.tsx   # Chat UI + tool execution loop
 │   │   └── taskpane.ts          # Office.js functions (readRange, writeRange, getWorkbookInfo)
 │   └── manifest.xml             # Add-in configuration
 │
-├── backend/                 # Python backend
-│   ├── main.py              # FastAPI app
-│   ├── agent.py             # Claude agent logic
-│   ├── tools.py             # Tool definitions for Claude
-│   └── models.py            # Pydantic request/response models
+├── backend/                     # Python backend
+│   ├── main.py                  # FastAPI app + session state machine
+│   ├── orchestrator.py          # Classification + data strategy agents
+│   ├── models.py                # Pydantic models (requests, responses, orchestrator results)
+│   ├── tools.py                 # Tool definitions for Claude (read_range, write_range, etc.)
+│   └── experts/
+│       ├── base.py              # Shared agent logic
+│       ├── general.py           # General Excel assistant
+│       └── bond_pricing.py      # Bond DCF expert
 ```
 
 ---
 
 ## Future Improvements
 
+### Code Quality
+- Move orchestrator tool definitions to `tools.py` for consistency
+- After `ask_user`, go directly to `data_strategy` instead of re-fetching workbook info
+- Make session phases explicit with a `Phase` enum instead of string literals
+- Add consistent error handling for Claude API failures
+
+### Robustness
+- Add timeout handling for web search
+- Validate Excel ranges before read/write operations
+- Clean up sessions on error (currently can leak if flow fails mid-way)
+- Add rate limiting for API calls
+
+### Features
 - `get_selected_range` tool — let Claude see what the user has highlighted
-- Better error handling — surface Office.js errors to the user
 - Streaming responses — show Claude's thinking in real-time
 - Persistent sessions — use Redis instead of in-memory dict
+- More expert types — easily extensible by adding new expert modules
+- Automatic data discovery. Instead of asking users to specify ranges in large workbooks, batch the data into chunks, have an LLM summarize what each section contains, and automatically fetch relevant data based on the task. This would reduce user burden while still preventing context overload.
+- Formatting capabilities — add tools for cell colors, bold/italic text, borders, conditional formatting, etc.
+- Improved UI — better chat interface with loading states
+- Use LangGraph for better agentic flow readability — the current state machine in `main.py` works but could be more maintainable with LangGraph's explicit graph-based workflow definition
