@@ -1,45 +1,109 @@
 import * as React from "react";
-import Header from "./Header";
-import HeroList, { HeroListItem } from "./HeroList";
-import TextInsertion from "./TextInsertion";
-import { makeStyles } from "@fluentui/react-components";
-import { Ribbon24Regular, LockOpen24Regular, DesignIdeas24Regular } from "@fluentui/react-icons";
-import { insertText } from "../taskpane";
+import { useState } from "react";
+import { readRange, writeRange } from "../taskpane";
 
-interface AppProps {
-  title: string;
+const API_URL = "https://localhost:8000";
+
+interface Message {
+  role: "user" | "assistant";
+  content: string;
 }
 
-const useStyles = makeStyles({
-  root: {
-    minHeight: "100vh",
-  },
-});
+interface ToolCall {
+  name: string;
+  args: Record<string, unknown>;
+}
 
-const App: React.FC<AppProps> = (props: AppProps) => {
-  const styles = useStyles();
-  // The list items are static and won't change at runtime,
-  // so this should be an ordinary const, not a part of state.
-  const listItems: HeroListItem[] = [
-    {
-      icon: <Ribbon24Regular />,
-      primaryText: "Achieve more with Office integration",
-    },
-    {
-      icon: <LockOpen24Regular />,
-      primaryText: "Unlock features and functionality",
-    },
-    {
-      icon: <DesignIdeas24Regular />,
-      primaryText: "Create and visualize like a pro",
-    },
-  ];
+interface ChatResponse {
+  response: string | null;
+  tool_calls: ToolCall[] | null;
+}
+
+const App: React.FC = () => {
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const executeToolCall = async (toolCall: ToolCall): Promise<unknown> => {
+    if (toolCall.name === "read_range") {
+      return await readRange(toolCall.args.range as string);
+    }
+    if (toolCall.name === "write_range") {
+      await writeRange(
+        toolCall.args.range as string,
+        toolCall.args.values as unknown[][]
+      );
+      return "Done";
+    }
+    return "Unknown tool";
+  };
+
+  const sendMessage = async () => {
+    if (!input.trim()) return;
+
+    const userMessage = input;
+    setInput("");
+    setMessages((prev) => [...prev, { role: "user", content: userMessage }]);
+    setLoading(true);
+
+    try {
+      let response = await fetch(`${API_URL}/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: userMessage }),
+      });
+      let data: ChatResponse = await response.json();
+
+      // Tool execution loop
+      while (data.tool_calls && data.tool_calls.length > 0) {
+        const toolResults = [];
+        for (const toolCall of data.tool_calls) {
+          const result = await executeToolCall(toolCall);
+          toolResults.push({ name: toolCall.name, result });
+        }
+
+        response = await fetch(`${API_URL}/chat`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: userMessage, tool_results: toolResults }),
+        });
+        data = await response.json();
+      }
+
+      if (data.response) {
+        setMessages((prev) => [...prev, { role: "assistant", content: data.response }]);
+      }
+    } catch (error) {
+      setMessages((prev) => [...prev, { role: "assistant", content: `Error: ${error}` }]);
+    }
+
+    setLoading(false);
+  };
 
   return (
-    <div className={styles.root}>
-      <Header logo="assets/logo-filled.png" title={props.title} message="Welcome" />
-      <HeroList message="Discover what this add-in can do for you today!" items={listItems} />
-      <TextInsertion insertText={insertText} />
+    <div style={{ padding: 10, fontFamily: "sans-serif" }}>
+      <h2>Crunched 2.0</h2>
+
+      <div style={{ height: 300, overflowY: "auto", border: "1px solid #ccc", padding: 10, marginBottom: 10 }}>
+        {messages.map((msg, i) => (
+          <div key={i} style={{ marginBottom: 8 }}>
+            <strong>{msg.role === "user" ? "You" : "Agent"}:</strong> {msg.content}
+          </div>
+        ))}
+        {loading && <div>Thinking...</div>}
+      </div>
+
+      <input
+        type="text"
+        value={input}
+        onChange={(e) => setInput(e.target.value)}
+        onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+        placeholder="Type a message..."
+        style={{ width: "70%", padding: 8 }}
+      />
+      <button onClick={sendMessage} style={{ padding: 8, marginLeft: 5 }}>
+        Send
+      </button>
     </div>
   );
 };
