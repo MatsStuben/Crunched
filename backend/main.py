@@ -5,9 +5,9 @@ import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from models import ChatRequest, ChatResponse, ToolCall, DataStrategy
+from models import ChatRequest, ChatResponse, ToolCall, DataStrategy, TaskType
 from orchestrator import step1_classify, step3_data_strategy
-from agent import run_agent
+from experts import run_general, run_bond_pricing
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -130,22 +130,20 @@ async def chat(request: ChatRequest) -> ChatResponse:
 
 async def run_expert_phase(session_id: str, session: dict, request: ChatRequest) -> ChatResponse:
     """Run the expert agent with gathered context."""
-    logger.info(f"[EXPERT] Starting expert phase")
+    task_type = session["classification"].task_type if session["classification"] else TaskType.OTHER
+    logger.info(f"[EXPERT] Starting expert phase with task_type={task_type}")
 
     # Build context for the expert
     context_parts = [session["original_message"]]
-
     if session["excel_context"]:
         context_parts.append(f"\n\nExcel data found:\n{session['excel_context']}")
-
-    if session["classification"]:
-        context_parts.append(f"\n\nTask type: {session['classification'].task_type}")
-
     full_context = "".join(context_parts)
     logger.info(f"[EXPERT] Full context: {full_context[:500]}...")
 
-    # Run the agent
-    result = run_agent(
+    # Route to correct expert
+    expert_fn = run_bond_pricing if task_type == TaskType.BOND_PRICING else run_general
+
+    result = expert_fn(
         user_message=full_context,
         tool_results=request.tool_results if session.get("expert_started") else None,
         conversation_history=session["conversation_history"]
