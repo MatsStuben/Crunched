@@ -10,6 +10,7 @@ interface Message {
 }
 
 interface ToolCall {
+  id: string;
   name: string;
   args: Record<string, unknown>;
 }
@@ -17,6 +18,7 @@ interface ToolCall {
 interface ChatResponse {
   response: string | null;
   tool_calls: ToolCall[] | null;
+  conversation_history: unknown[] | null;
 }
 
 const App: React.FC = () => {
@@ -53,21 +55,31 @@ const App: React.FC = () => {
         body: JSON.stringify({ message: userMessage }),
       });
       let data: ChatResponse = await response.json();
+      let conversationHistory = data.conversation_history;
 
       // Tool execution loop
       while (data.tool_calls && data.tool_calls.length > 0) {
         const toolResults = [];
         for (const toolCall of data.tool_calls) {
           const result = await executeToolCall(toolCall);
-          toolResults.push({ name: toolCall.name, result });
+          toolResults.push({
+            tool_use_id: toolCall.id,
+            name: toolCall.name,
+            result
+          });
         }
 
         response = await fetch(`${API_URL}/chat`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message: userMessage, tool_results: toolResults }),
+          body: JSON.stringify({
+            message: userMessage,
+            tool_results: toolResults,
+            conversation_history: conversationHistory
+          }),
         });
         data = await response.json();
+        conversationHistory = data.conversation_history;
       }
 
       if (data.response) {

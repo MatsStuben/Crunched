@@ -21,5 +21,9 @@ lib/
 .env
 .env.local
 
+# SSL certificates
+certs/
+*.pem
+
 # OS files
 .DS_Store

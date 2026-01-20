@@ -1,9 +1,10 @@
-"""Minimal FastAPI backend for testing."""
+"""FastAPI backend for Crunched Excel add-in."""
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from models import ChatRequest, ChatResponse, ToolCall
+from agent import run_agent
 
 app = FastAPI()
 
@@ -19,23 +20,27 @@ app.add_middleware(
 
 @app.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest) -> ChatResponse:
-    """Simple test endpoint - returns a tool call first, then a response."""
+    """Chat endpoint that uses Claude agent."""
 
-    # If we received tool results, return final response
-    if request.tool_results:
-        tool_data = request.tool_results[0]
+    result = run_agent(
+        user_message=request.message,
+        tool_results=request.tool_results,
+        conversation_history=request.conversation_history
+    )
+
+    if "tool_calls" in result:
         return ChatResponse(
-            response=f"Got data from Excel: {tool_data.get('result', 'no result')}"
+            tool_calls=[
+                ToolCall(id=tc["id"], name=tc["name"], args=tc["args"])
+                for tc in result["tool_calls"]
+            ],
+            conversation_history=result["conversation_history"]
         )
-
-    # First call: ask frontend to read a cell
-    if "read" in request.message.lower():
+    else:
         return ChatResponse(
-            tool_calls=[ToolCall(name="read_range", args={"range": "A1:B2"})]
+            response=result["response"],
+            conversation_history=result["conversation_history"]
         )
-
-    # Default: just echo back
-    return ChatResponse(response=f"Echo: {request.message}")
 
 
 @app.get("/health")
