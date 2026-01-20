@@ -1,6 +1,7 @@
 """Tool definitions for Claude."""
 
 TOOLS = [
+    {"type": "web_search_20250305", "name": "web_search"},
     {
         "name": "read_range",
         "description": "Read values from a range of cells in the active Excel worksheet. Returns a 2D array of cell values.",
