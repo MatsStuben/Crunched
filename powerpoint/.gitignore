@@ -1,0 +1,29 @@
+U# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Node.js
+node_modules/
+npm-debug.log*
+
+# Office Add-in build output
+dist/
+lib/
+
+# Environment files
+.env
+.env.local
+
+# SSL certificates
+certs/
+*.pem
+
+# OS files
+.DS_Store
