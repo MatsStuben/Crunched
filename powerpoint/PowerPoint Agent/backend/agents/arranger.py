@@ -30,6 +30,16 @@ ARRANGE_TOOL = {
                          "horizontal_center", "vertical_center"],
                 "description": "The alignment operation to apply"
             },
+            "vertical_position": {
+                "type": "string",
+                "enum": ["top", "middle", "bottom"],
+                "description": "For horizontal arrangements: where to position shapes vertically. Default is 'middle'."
+            },
+            "horizontal_position": {
+                "type": "string",
+                "enum": ["left", "center", "right"],
+                "description": "For vertical arrangements: where to position shapes horizontally. Default is 'center'."
+            },
             "explanation": {
                 "type": "string",
                 "description": "Brief explanation of what will be done"
@@ -49,6 +59,7 @@ Your task:
 - Determine which shapes to include in the arrangement
 - Determine the order (which shape goes first, second, etc.)
 - Choose the appropriate alignment type
+- Choose vertical/horizontal positioning
 
 Alignment types:
 - horizontal_distribute: Spread shapes evenly LEFT-TO-RIGHT across the slide
@@ -63,6 +74,13 @@ Alignment types:
 - vertical_center: Align all shapes to the same HORIZONTAL center line (same Y position)
   Use for: "center vertically", "same height", "align on same row"
 
+Positioning:
+- vertical_position (for horizontal arrangements): "top", "middle" (default), or "bottom"
+  Use "top" if user says "at the top", "bottom" if "at the bottom", otherwise "middle"
+
+- horizontal_position (for vertical arrangements): "left", "center" (default), or "right"
+  Use "left" if user says "on the left side", "right" if "on the right", otherwise "center"
+
 Guidelines:
 - Match user's natural language to shape labels (e.g., "the email" → shape labeled "email interface")
 - If user says "A then B then C", order should be [A_id, B_id, C_id]
@@ -70,6 +88,7 @@ Guidelines:
 - Only include shapes that the user mentions or implies
 - If user says "all shapes", include everything
 - IMPORTANT: Return the actual shape IDs, not the labels
+- If user doesn't specify position, use "middle" for vertical_position and "center" for horizontal_position
 
 Always use the arrange_shapes tool to respond."""
 
@@ -129,5 +148,7 @@ Determine the arrangement. Return the shape IDs (not labels) in the order array.
     return {
         "order": filtered_order,
         "alignment": tool_input["alignment"],
+        "vertical_position": tool_input.get("vertical_position", "middle"),
+        "horizontal_position": tool_input.get("horizontal_position", "center"),
         "explanation": tool_input["explanation"]
     }

@@ -281,10 +281,13 @@ export async function describeSlide(): Promise<string> {
 // Arrange shapes in a specific order (uses Claude's order, not current positions)
 export async function arrangeShapesInOrder(
   shapeIds: string[],
-  alignment: string
+  alignment: string,
+  verticalPosition: string = "middle",
+  horizontalPosition: string = "center"
 ): Promise<void> {
   console.log(`Arranging ${shapeIds.length} shapes with alignment: ${alignment}`);
   console.log("Shape order:", shapeIds);
+  console.log(`Vertical position: ${verticalPosition}, Horizontal position: ${horizontalPosition}`);
 
   await PowerPoint.run(async (context) => {
     const slide = context.presentation.getSelectedSlides().getItemAt(0);
@@ -320,14 +323,37 @@ export async function arrangeShapesInOrder(
       return;
     }
 
-    // Calculate average Y position (for horizontal arrangements, keep same height)
-    const avgCenterY =
-      orderedShapes.reduce((sum, s) => sum + s.top + s.height / 2, 0) / orderedShapes.length;
+    // Slide dimensions
+    const slideWidth = 960;
+    const slideHeight = 540;
+    const margin = 40;
+
+    // Calculate target Y position based on verticalPosition
+    let targetY: number;
+    const maxShapeHeight = Math.max(...orderedShapes.map((s) => s.height));
+    if (verticalPosition === "top") {
+      targetY = margin + maxShapeHeight / 2;
+    } else if (verticalPosition === "bottom") {
+      targetY = slideHeight - margin - maxShapeHeight / 2;
+    } else {
+      // middle (default)
+      targetY = slideHeight / 2;
+    }
+
+    // Calculate target X position based on horizontalPosition
+    let targetX: number;
+    const maxShapeWidth = Math.max(...orderedShapes.map((s) => s.width));
+    if (horizontalPosition === "left") {
+      targetX = margin + maxShapeWidth / 2;
+    } else if (horizontalPosition === "right") {
+      targetX = slideWidth - margin - maxShapeWidth / 2;
+    } else {
+      // center (default)
+      targetX = slideWidth / 2;
+    }
 
     if (alignment === "horizontal_distribute") {
       // Distribute shapes left-to-right in the specified order
-      const slideWidth = 960;
-      const margin = 40;
       const availableWidth = slideWidth - 2 * margin;
       const totalShapeWidth = orderedShapes.reduce((sum, s) => sum + s.width, 0);
       const gap = (availableWidth - totalShapeWidth) / (orderedShapes.length - 1);
@@ -335,25 +361,19 @@ export async function arrangeShapesInOrder(
       let currentLeft = margin;
       for (const shape of orderedShapes) {
         shape.left = currentLeft;
-        shape.top = avgCenterY - shape.height / 2; // Also align vertically
+        shape.top = targetY - shape.height / 2; // Align to target Y position
         currentLeft += shape.width + gap;
       }
     } else if (alignment === "vertical_distribute") {
       // Distribute shapes top-to-bottom in the specified order
-      const slideHeight = 540;
-      const margin = 40;
       const availableHeight = slideHeight - 2 * margin;
       const totalShapeHeight = orderedShapes.reduce((sum, s) => sum + s.height, 0);
       const gap = (availableHeight - totalShapeHeight) / (orderedShapes.length - 1);
 
-      // Calculate average X position
-      const avgCenterX =
-        orderedShapes.reduce((sum, s) => sum + s.left + s.width / 2, 0) / orderedShapes.length;
-
       let currentTop = margin;
       for (const shape of orderedShapes) {
         shape.top = currentTop;
-        shape.left = avgCenterX - shape.width / 2; // Also align horizontally
+        shape.left = targetX - shape.width / 2; // Align to target X position
         currentTop += shape.height + gap;
       }
     } else if (alignment === "horizontal_center") {
@@ -365,6 +385,8 @@ export async function arrangeShapesInOrder(
       }
     } else if (alignment === "vertical_center") {
       // Align all to same Y center
+      const avgCenterY =
+        orderedShapes.reduce((sum, s) => sum + s.top + s.height / 2, 0) / orderedShapes.length;
       for (const shape of orderedShapes) {
         shape.top = avgCenterY - shape.height / 2;
       }
@@ -401,12 +423,49 @@ export async function requestArrangement(
     const result = await response.json();
     console.log("Arrangement result:", result);
 
-    // Execute the arrangement
-    await arrangeShapesInOrder(result.order, result.alignment);
+    // Execute the arrangement with position parameters
+    await arrangeShapesInOrder(
+      result.order,
+      result.alignment,
+      result.vertical_position || "middle",
+      result.horizontal_position || "center"
+    );
 
     return result.explanation;
   } catch (error) {
     console.error("Arrangement error:", error);
+    return `Error: ${error}`;
+  }
+}
+
+// Generate a presentation script for the current slide
+export async function generateScript(context: string): Promise<string> {
+  console.log(`Generating script with context: "${context.substring(0, 100)}..."`);
+
+  try {
+    const screenshot = await getSlideScreenshot();
+    console.log(`Got screenshot (${screenshot.length} chars)`);
+
+    const response = await fetch(`${BACKEND_URL}/generate-script`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        image_base64: screenshot,
+        context: context,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Script generation failed: ${response.status} - ${errorText}`);
+    }
+
+    const result = await response.json();
+    console.log("Script generated:", result.script.substring(0, 100) + "...");
+
+    return result.script;
+  } catch (error) {
+    console.error("Script generation error:", error);
     return `Error: ${error}`;
   }
 }

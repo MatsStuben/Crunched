@@ -18,6 +18,20 @@ class AlignmentType(str, Enum):
     VERTICAL_CENTER = "vertical_center"
 
 
+class VerticalPosition(str, Enum):
+    """Vertical positioning for horizontal arrangements."""
+    TOP = "top"
+    MIDDLE = "middle"
+    BOTTOM = "bottom"
+
+
+class HorizontalPosition(str, Enum):
+    """Horizontal positioning for vertical arrangements."""
+    LEFT = "left"
+    CENTER = "center"
+    RIGHT = "right"
+
+
 class Shape(BaseModel):
     """Basic shape information from PowerPoint."""
     id: str
@@ -61,4 +75,24 @@ class ArrangeResponse(BaseModel):
     """Response with arrangement instructions."""
     order: list[str] = Field(description="Shape IDs in desired order")
     alignment: AlignmentType = Field(description="Alignment operation to apply")
+    vertical_position: VerticalPosition = Field(
+        default=VerticalPosition.MIDDLE,
+        description="Vertical position for horizontal arrangements"
+    )
+    horizontal_position: HorizontalPosition = Field(
+        default=HorizontalPosition.CENTER,
+        description="Horizontal position for vertical arrangements"
+    )
     explanation: str = Field(description="Human-readable explanation of the arrangement")
+
+
+# Script Generation
+class ScriptRequest(BaseModel):
+    """Request to generate a presentation script for a slide."""
+    image_base64: str = Field(description="Base64 encoded PNG of the slide")
+    context: str = Field(default="", description="User's context: audience, purpose, notes, etc.")
+
+
+class ScriptResponse(BaseModel):
+    """Response with the generated script."""
+    script: str = Field(description="The generated presentation script")

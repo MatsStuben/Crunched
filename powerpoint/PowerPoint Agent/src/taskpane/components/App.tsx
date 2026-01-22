@@ -1,8 +1,8 @@
 import * as React from "react";
 import { useState } from "react";
-import { makeStyles, Button, Input, Text, Spinner } from "@fluentui/react-components";
-import { AlignCenterHorizontal24Regular, Play24Regular } from "@fluentui/react-icons";
-import { analyzeScene, requestArrangement, alignShapes, LabeledShape } from "../taskpane";
+import { makeStyles, Button, Input, Text, Spinner, Textarea, Divider } from "@fluentui/react-components";
+import { AlignCenterHorizontal24Regular, Play24Regular, Document24Regular } from "@fluentui/react-icons";
+import { analyzeScene, requestArrangement, alignShapes, generateScript, LabeledShape } from "../taskpane";
 
 const useStyles = makeStyles({
   root: {
@@ -54,6 +54,28 @@ const useStyles = makeStyles({
   startButton: {
     padding: "16px",
   },
+  section: {
+    marginTop: "8px",
+  },
+  sectionHeader: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    marginBottom: "8px",
+  },
+  textarea: {
+    width: "100%",
+    minHeight: "80px",
+  },
+  scriptResult: {
+    padding: "12px",
+    backgroundColor: "#f0f4ff",
+    borderRadius: "4px",
+    whiteSpace: "pre-wrap",
+    fontSize: "13px",
+    maxHeight: "300px",
+    overflowY: "auto",
+  },
 });
 
 const App: React.FC = () => {
@@ -62,6 +84,11 @@ const App: React.FC = () => {
   const [result, setResult] = useState("");
   const [loading, setLoading] = useState(false);
   const [labeledShapes, setLabeledShapes] = useState<LabeledShape[] | null>(null);
+
+  // Script generation state
+  const [scriptContext, setScriptContext] = useState("");
+  const [generatedScript, setGeneratedScript] = useState("");
+  const [scriptLoading, setScriptLoading] = useState(false);
 
   // Start session: analyze the slide
   const handleStart = async () => {
@@ -108,6 +135,19 @@ const App: React.FC = () => {
       setResult(`Error: ${error}`);
     }
     setLoading(false);
+  };
+
+  // Generate script for current slide
+  const handleGenerateScript = async () => {
+    setScriptLoading(true);
+    setGeneratedScript("");
+    try {
+      const script = await generateScript(scriptContext);
+      setGeneratedScript(script);
+    } catch (error) {
+      setGeneratedScript(`Error: ${error}`);
+    }
+    setScriptLoading(false);
   };
 
   return (
@@ -199,6 +239,49 @@ const App: React.FC = () => {
           <Spinner size="small" label="Processing..." />
         ) : (
           <Text>{result || "Click Start to begin"}</Text>
+        )}
+      </div>
+
+      <Divider />
+
+      {/* Script Generation Section */}
+      <div className={styles.section}>
+        <div className={styles.sectionHeader}>
+          <Document24Regular />
+          <Text weight="semibold">Generate Presentation Script</Text>
+        </div>
+
+        <Text className={styles.instructions}>
+          Provide context about your presentation (audience, purpose, key points) and AI will generate a
+          script for the current slide.
+        </Text>
+
+        <Textarea
+          className={styles.textarea}
+          placeholder="e.g., 'This is for a board presentation. The audience is executives. Focus on ROI and efficiency gains...'"
+          value={scriptContext}
+          onChange={(_, data) => setScriptContext(data.value)}
+          disabled={scriptLoading}
+        />
+
+        <Button
+          appearance="primary"
+          icon={<Document24Regular />}
+          onClick={handleGenerateScript}
+          disabled={scriptLoading}
+          style={{ marginTop: "8px" }}
+        >
+          {scriptLoading ? "Generating..." : "Generate Script"}
+        </Button>
+
+        {(generatedScript || scriptLoading) && (
+          <div className={styles.scriptResult} style={{ marginTop: "12px" }}>
+            {scriptLoading ? (
+              <Spinner size="small" label="Generating script..." />
+            ) : (
+              <Text>{generatedScript}</Text>
+            )}
+          </div>
         )}
       </div>
     </div>
