@@ -2,7 +2,7 @@ import * as React from "react";
 import { useState } from "react";
 import { makeStyles, Button, Input, Text, Spinner, Textarea, Divider } from "@fluentui/react-components";
 import { AlignCenterHorizontal24Regular, Play24Regular, Document24Regular } from "@fluentui/react-icons";
-import { analyzeScene, requestArrangement, alignShapes, generateScript, LabeledShape } from "../taskpane";
+import { analyzeScene, requestArrangement, generateScript, LabeledShape } from "../taskpane";
 
 const useStyles = makeStyles({
   root: {
@@ -29,11 +29,6 @@ const useStyles = makeStyles({
   input: {
     flex: 1,
   },
-  quickButtons: {
-    display: "flex",
-    flexWrap: "wrap",
-    gap: "8px",
-  },
   result: {
     padding: "12px",
     backgroundColor: "#f5f5f5",
@@ -43,9 +38,10 @@ const useStyles = makeStyles({
   },
   shapesList: {
     padding: "12px",
-    backgroundColor: "#e8f4e8",
+    backgroundColor: "#fff7ed",
     borderRadius: "4px",
     fontSize: "13px",
+    border: "1px solid #fed7aa",
   },
   instructions: {
     fontSize: "12px",
@@ -69,12 +65,13 @@ const useStyles = makeStyles({
   },
   scriptResult: {
     padding: "12px",
-    backgroundColor: "#f0f4ff",
+    backgroundColor: "#fff7ed",
     borderRadius: "4px",
     whiteSpace: "pre-wrap",
     fontSize: "13px",
     maxHeight: "300px",
     overflowY: "auto",
+    border: "1px solid #fed7aa",
   },
 });
 
@@ -124,19 +121,6 @@ const App: React.FC = () => {
     setLoading(false);
   };
 
-  // Quick alignment (for selected shapes, no AI)
-  const handleQuickAlign = async (type: string, label: string) => {
-    setLoading(true);
-    setResult("");
-    try {
-      await alignShapes(type);
-      setResult(`Applied: ${label}`);
-    } catch (error) {
-      setResult(`Error: ${error}`);
-    }
-    setLoading(false);
-  };
-
   // Generate script for current slide
   const handleGenerateScript = async () => {
     setScriptLoading(true);
@@ -154,7 +138,7 @@ const App: React.FC = () => {
     <div className={styles.root}>
       <div className={styles.header}>
         <AlignCenterHorizontal24Regular />
-        <Text className={styles.title}>PowerPoint Alignment Agent</Text>
+        <Text className={styles.title}>Aligned</Text>
       </div>
 
       {/* Start Button - shown when no shapes analyzed yet */}
@@ -165,12 +149,12 @@ const App: React.FC = () => {
             then arrange them using natural language.
           </Text>
           <Button
-            appearance="primary"
             size="large"
             icon={<Play24Regular />}
             onClick={handleStart}
             disabled={loading}
             className={styles.startButton}
+            style={{ backgroundColor: "#f97316", color: "white" }}
           >
             {loading ? "Analyzing..." : "Start"}
           </Button>
@@ -205,7 +189,11 @@ const App: React.FC = () => {
               onKeyDown={(e) => e.key === "Enter" && handleArrange()}
               disabled={loading}
             />
-            <Button appearance="primary" onClick={handleArrange} disabled={loading || !message.trim()}>
+            <Button
+              onClick={handleArrange}
+              disabled={loading || !message.trim()}
+              style={{ backgroundColor: "#f97316", color: "white" }}
+            >
               Arrange
             </Button>
           </div>
@@ -215,23 +203,6 @@ const App: React.FC = () => {
           </Button>
         </>
       )}
-
-      {/* Quick Actions - always available for manual alignment */}
-      <Text weight="semibold">Quick Actions (select shapes first):</Text>
-      <div className={styles.quickButtons}>
-        <Button size="small" onClick={() => handleQuickAlign("horizontal_center", "Horizontal Center")}>
-          Align H
-        </Button>
-        <Button size="small" onClick={() => handleQuickAlign("vertical_center", "Vertical Center")}>
-          Align V
-        </Button>
-        <Button size="small" onClick={() => handleQuickAlign("horizontal_distribute", "Distribute H")}>
-          Distribute H
-        </Button>
-        <Button size="small" onClick={() => handleQuickAlign("vertical_distribute", "Distribute V")}>
-          Distribute V
-        </Button>
-      </div>
 
       {/* Result area */}
       <div className={styles.result}>
@@ -265,11 +236,10 @@ const App: React.FC = () => {
         />
 
         <Button
-          appearance="primary"
           icon={<Document24Regular />}
           onClick={handleGenerateScript}
           disabled={scriptLoading}
-          style={{ marginTop: "8px" }}
+          style={{ marginTop: "8px", backgroundColor: "#f97316", color: "white" }}
         >
           {scriptLoading ? "Generating..." : "Generate Script"}
         </Button>

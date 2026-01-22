@@ -61,7 +61,7 @@ Write the script the presenter should say when showing this slide."""
     ]
 
     response = client.messages.create(
-        model="claude-sonnet-4-20250514",
+        model="claude-sonnet-4-5-20250929",
         max_tokens=1024,
         system=SYSTEM_PROMPT,
         messages=[{"role": "user", "content": user_content}]

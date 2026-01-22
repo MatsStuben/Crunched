@@ -101,7 +101,7 @@ def analyze_scene(image_base64: str, shapes: list[Shape]) -> list[LabeledShape]:
     ]
 
     response = client.messages.create(
-        model="claude-sonnet-4-20250514",
+        model="claude-sonnet-4-5-20250929",
         max_tokens=1024,
         system=SYSTEM_PROMPT,
         tools=[LABEL_SHAPES_TOOL],

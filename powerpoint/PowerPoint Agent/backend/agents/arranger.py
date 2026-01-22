@@ -122,7 +122,7 @@ User's instruction: "{user_message}"
 Determine the arrangement. Return the shape IDs (not labels) in the order array."""
 
     response = client.messages.create(
-        model="claude-sonnet-4-20250514",
+        model="claude-sonnet-4-5-20250929",
         max_tokens=512,
         system=SYSTEM_PROMPT,
         tools=[ARRANGE_TOOL],
